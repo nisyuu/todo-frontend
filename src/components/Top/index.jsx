@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Button from '@material-ui/core/Button';
 import Box from '@material-ui/core/Box';
 import FormGroup from '@material-ui/core/FormGroup';
@@ -7,6 +7,7 @@ import Checkbox from '@material-ui/core/Checkbox';
 import Container from '@material-ui/core/Container';
 import { makeStyles } from '@material-ui/core/styles';
 import TextField from '@material-ui/core/TextField';
+import getToDoList, { postCreateTodo, patchCheckTodo, deleteTodo } from '../../common/api/todo';
 
 const useStyles = makeStyles(theme => ({
   todoTextField: {
@@ -16,21 +17,44 @@ const useStyles = makeStyles(theme => ({
 
 const Top = () => {
   const classes = useStyles();
-  const [todoList, setTodoList] = useState(['洗濯', '掃除', '食器洗い']);
+  const [todoList, setTodoList] = useState([]);
   const [todo, setTodo] = useState('');
 
-  const handleCreate = () => {
-    if (todo === '' || todoList.indexOf(todo) !== -1) return;
-    setTodoList(todoList.concat(todo));
+  useEffect(() => {
+    (async () => {
+      const list = await getToDoList();
+      setTodoList(list);
+    })();
+  }, []);
+
+  const handleCreate = async () => {
+    if ( todo === '' || todoList.some( value => todo === value.name ) ) return;
+    const createTodoResponse = await postCreateTodo(todo);
+    setTodoList(todoList.concat(createTodoResponse));
   };
 
   const handleSetTodo = (e) => {
     setTodo(e.target.value);
   };
 
-  const handleDelete = (todo) => {
-    const newArray = todoList.filter(value => value !== todo);
-    setTodoList(newArray);
+  const handleCheck = (e) => {
+    const todoId = e.target.value;
+    const checked = e.target.checked;
+    const list = todoList.map( (value, index) => {
+      if (value.id.toString() === todoId) {
+        todoList[index].checked = checked;
+      }
+      return todoList[index];
+    });
+    setTodoList(list)
+    patchCheckTodo(todoId, checked);
+  }
+
+  const handleDelete = (e) => {
+    const todoId = e.currentTarget.dataset.id;
+    const list = todoList.filter( value => value['id'].toString() !== todoId);
+    setTodoList(list);
+    deleteTodo(todoId);
   };
 
   return (
@@ -46,13 +70,15 @@ const Top = () => {
               <FormControlLabel
                 control={
                   <Checkbox
-                    value={todo}
+                    checked={todo.checked}
+                    onChange={handleCheck}
+                    value={todo.id}
                     color="primary"
                   />
                 }
-                label={todo}
+                label={todo.name}
               />
-              <Button variant="contained" color="secondary" onClick={() => handleDelete(todo)}>削除</Button>
+              <Button variant="contained" color="secondary" data-id={todo.id} onClick={handleDelete}>削除</Button>
             </Box>
           )
         })}
